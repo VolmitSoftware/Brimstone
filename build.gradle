@@ -162,7 +162,7 @@ String languageSourceBranch = providers.gradleProperty('languageSourceBranch').o
         }
     } catch (IOException | InterruptedException ignored) {
     }
-    return 'main'
+    return 'master'
 }).get()
 if (!(languageSourceBranch ==~ /[A-Za-z0-9][A-Za-z0-9._\/-]{0,127}/) || languageSourceBranch.contains('..')) {
     throw new GradleException('languageSourceBranch must be a Git branch name')

@@ -1,14 +1,27 @@
 # Brimstone
 
-Configurable TNT launchers with seven effects, crafting, fuel costs, protection checks, and translated in-game editors.
+Brimstone adds custom TNT that players launch by left-clicking the air, with seven effects and configurable recipes, fuel costs, and entity limits.
 
-- Minecraft **26.1–26.3** on Spigot, Paper, Folia, or compatible servers.
-- **Java 25 or newer**.
-- Commands: `/brimstone` or `/brim`.
-- Settings: `plugins/Brimstone/config.toml`.
+## Requirements
 
-See the [wiki](https://docs.volmitsoftware.com/brimstone) for installation, commands, languages, and tested server versions. Runtime libraries download on first startup; a separate VolmLib plugin is not required.
+- Minecraft 26.1 through 26.3 on Spigot, Paper, Purpur, Leaf, Folia, or Canvas.
+- Java 25 or newer.
+- Network access for dependency downloads on the first start.
+
+## Install
+
+1. Stop the server and back up its worlds and plugin data.
+2. Place the Brimstone distribution jar in `plugins/`, replacing the previous jar.
+3. Start the server, check `/brim status`, and open `/brim config` to review the settings.
+
+See the [wiki](https://docs.volmitsoftware.com/brimstone), [configuration reference](https://docs.volmitsoftware.com/brimstone/03-configuration), and [commands and permissions](https://docs.volmitsoftware.com/brimstone/02-commands-permissions).
 
 ## Build
 
-Run `./gradlew build buildSwiftSwamp` (PowerShell: `.\gradlew.bat build buildSwiftSwamp`) with Java 25. The verified plugin is staged to `../BUILDS/Brimstone.jar`.
+Use Java 25. From the Brimstone repository:
+
+```powershell
+.\gradlew.bat build buildSwiftSwamp
+```
+
+The build resolves local VolmLib automatically and stages the verified distribution as `../BUILDS/Brimstone.jar`. Override the staging directory with `-PbuildsDirectory=<path>`.

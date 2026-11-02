@@ -232,7 +232,7 @@ public final class Brimstone extends JavaPlugin {
                 + "\nbStats integration: " + (metricsInitialized ? "initialized" : "not initialized")
                 + "\nCrafting: " + snapshot.craftingEnabled()
                 + "\nUpdate notifications: " + (snapshot.updateNotifications() ? "enabled" : "disabled")
-                + "\nUpdate repository: VolmitSoftware/Brimstone (provisional)"
+                + "\nUpdate repository: VolmitSoftware/Brimstone"
                 + "\nLanguage source: " + languageSource + "\nLanguage revision: " + languageRevision
                 + "\nLanguage last check: " + languageChecked + "\nLanguage last error: " + languageError
                 + "\nCooldown ticks: " + snapshot.cooldownTicks() + "\nLanguage: " + snapshot.language()
