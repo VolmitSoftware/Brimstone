@@ -1,0 +1,404 @@
+import org.gradle.api.attributes.Usage
+import org.gradle.api.attributes.java.TargetJvmVersion
+import org.gradle.api.tasks.compile.JavaCompile
+import org.gradle.jvm.toolchain.JavaLanguageVersion
+import java.util.zip.ZipFile
+
+buildscript {
+    repositories {
+        mavenCentral()
+        maven { url = uri('https://jitpack.io') }
+    }
+    dependencies {
+        classpath('com.github.VolmitSoftware.VolmLib:packaging:master-SNAPSHOT')
+    }
+}
+
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'com.gradleup.shadow' version '9.0.0-rc3'
+    id 'de.crazydev22.slimjar' version '2.1.9'
+}
+
+apply plugin: 'art.arcane.volmit-packaging'
+
+tasks.named('slimJar').get()
+
+group = 'com.volmit'
+version = '2.0.0'
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(25)
+    withSourcesJar()
+}
+
+repositories {
+    mavenCentral()
+    maven { url = uri('https://hub.spigotmc.org/nexus/content/repositories/snapshots/') }
+    maven { url = uri('https://repo.papermc.io/repository/maven-public/') }
+    maven { url = uri('https://maven.enginehub.org/repo/') }
+    maven {
+        url = uri('https://jitpack.io')
+        content { includeGroupByRegex('com\\.github\\.VolmitSoftware.*') }
+    }
+}
+
+configurations {
+    runtimeLibraryTest {
+        canBeConsumed = false
+        canBeResolved = true
+        extendsFrom(configurations.slimApi)
+    }
+    currentPaperCompatibility {
+        canBeConsumed = false
+        canBeResolved = true
+        attributes {
+            attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_API))
+            attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 25)
+        }
+    }
+    currentSpigotCompatibility {
+        canBeConsumed = false
+        canBeResolved = true
+        attributes {
+            attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_API))
+            attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 25)
+        }
+    }
+}
+
+dependencies {
+    compileOnly('org.spigotmc:spigot-api:26.1-R0.1-SNAPSHOT')
+    compileOnly('com.sk89q.worldguard:worldguard-bukkit:7.0.16')
+    compileOnly('com.sk89q.worldedit:worldedit-bukkit:7.4.1')
+    implementation(providers.gradleProperty('volmLibCoordinate').orElse('com.github.VolmitSoftware:VolmLib:master-SNAPSHOT').get()) {
+        changing = true
+        transitive = false
+    }
+    implementation('de.crazydev22.slimjar.helper:spigot:2.1.9')
+    slimApi('com.google.code.gson:gson:2.10.1')
+    slimApi('com.moandjiezana.toml:toml4j:0.7.2')
+    slimApi('net.kyori:adventure-api:4.26.1')
+    slimApi('net.kyori:adventure-text-minimessage:4.26.1')
+    slimApi('net.kyori:adventure-text-serializer-legacy:4.26.1')
+    slimApi('net.kyori:adventure-text-serializer-plain:4.26.1')
+    slimApi('net.kyori:adventure-text-serializer-gson:4.26.1')
+    slimApi('net.kyori:adventure-text-serializer-json:4.26.1')
+    currentPaperCompatibility('io.papermc.paper:paper-api:26.3.build.140-beta')
+    currentSpigotCompatibility('org.spigotmc:spigot-api:26.3-R0.1-SNAPSHOT')
+    testImplementation(platform('org.junit:junit-bom:6.1.3'))
+    testImplementation('org.junit.jupiter:junit-jupiter')
+    testImplementation('org.assertj:assertj-core:3.27.4')
+    testImplementation('org.mockito:mockito-core:5.20.0')
+    testImplementation('com.sk89q.worldguard:worldguard-core:7.0.16') {
+        transitive = false
+    }
+    testImplementation('com.sk89q.worldguard.worldguard-libs:core:7.0.16') {
+        transitive = false
+    }
+    testImplementation('com.sk89q.worldedit:worldedit-core:7.4.1') {
+        transitive = false
+    }
+    testImplementation('com.sk89q.worldedit.worldedit-libs:core:7.4.1') {
+        transitive = false
+    }
+    testImplementation('io.papermc.paper:paper-api:26.2.build.111-stable')
+    testImplementation('org.mockbukkit.mockbukkit:mockbukkit-v26.2:4.116.1')
+    testImplementation('org.junit.platform:junit-platform-launcher')
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release.set(25)
+    options.encoding = 'UTF-8'
+    options.compilerArgs.add('-parameters')
+}
+
+['Paper', 'Spigot'].each { String platform ->
+    tasks.register("compileCurrent${platform}Compatibility", JavaCompile) {
+        source = sourceSets.main.java
+        classpath = configurations.getByName("current${platform}Compatibility") + files(sourceSets.main.compileClasspath.filter { File dependency ->
+            !dependency.name.startsWith('spigot-api-')
+        })
+        destinationDirectory.set(layout.buildDirectory.dir("classes/java/current${platform}Compatibility"))
+    }
+}
+
+Map<String, String> supportedApis = [
+        MinimumPaper: 'io.papermc.paper:paper-api:26.1.2.build.74-stable',
+        Minecraft26_2Spigot: 'org.spigotmc:spigot-api:26.2-R0.1-SNAPSHOT',
+        Minecraft26_2Paper: 'io.papermc.paper:paper-api:26.2.build.121-stable'
+]
+supportedApis.each { String target, String coordinate ->
+    Configuration compatibility = configurations.create("api${target}") {
+        canBeConsumed = false
+        canBeResolved = true
+        attributes {
+            attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_API))
+            attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 25)
+        }
+    }
+    dependencies.add(compatibility.name, coordinate)
+    TaskProvider<JavaCompile> compileCompatibility = tasks.register("compile${target}Compatibility", JavaCompile) {
+        source = sourceSets.main.java
+        classpath = compatibility + files(sourceSets.main.compileClasspath.filter { File dependency ->
+            !dependency.name.startsWith('spigot-api-')
+        })
+        destinationDirectory.set(layout.buildDirectory.dir("classes/java/${target}Compatibility"))
+    }
+    tasks.named('check').configure { dependsOn(compileCompatibility) }
+}
+
+String languageSourceRepository = 'VolmitSoftware/Brimstone'
+String languageSourceBranch = providers.gradleProperty('languageSourceBranch').orElse(providers.provider {
+    try {
+        Process process = new ProcessBuilder('git', 'symbolic-ref', '--short', 'refs/remotes/origin/HEAD')
+                .directory(projectDir)
+                .redirectErrorStream(true)
+                .start()
+        String output = process.inputStream.text.trim()
+        if (process.waitFor() == 0 && output.startsWith('origin/')) {
+            return output.substring('origin/'.length())
+        }
+    } catch (IOException | InterruptedException ignored) {
+    }
+    return 'main'
+}).get()
+if (!(languageSourceBranch ==~ /[A-Za-z0-9][A-Za-z0-9._\/-]{0,127}/) || languageSourceBranch.contains('..')) {
+    throw new GradleException('languageSourceBranch must be a Git branch name')
+}
+String languageSourcePath = 'src/main/resources/languages'
+List<String> languageSourceLocales = fileTree(languageSourcePath) {
+    include('*.toml')
+}.files.collect { File source -> source.name.substring(0, source.name.length() - '.toml'.length()) }.sort()
+def languageSourceManifestTask = tasks.register('generateLanguageSourceManifest', WriteProperties) {
+    destinationFile.set(layout.buildDirectory.file('generated/language-source/brimstone-language-source.properties'))
+    property('repository', languageSourceRepository)
+    property('branch', languageSourceBranch)
+    property('path', languageSourcePath)
+    property('extension', '.toml')
+    property('locales', languageSourceLocales.join(','))
+}
+
+tasks.named('processResources').configure {
+    dependsOn(languageSourceManifestTask)
+    exclude('languages/*.toml')
+    from(languageSourceManifestTask)
+    Map<String, String> properties = [
+        name      : rootProject.name,
+        version   : project.version.toString(),
+        main      : 'com.volmit.brimstone.Brimstone',
+        apiVersion: '26.1'
+    ]
+    inputs.properties(properties)
+    filesMatching('plugin.yml') { expand(properties) }
+}
+
+tasks.named('sourcesJar').configure { exclude('languages/**') }
+
+tasks.named('jar').configure { archiveClassifier.set('thin') }
+
+slimJar {
+    relocate('com.google.gson', 'com.volmit.brimstone.libs.gson')
+    relocate('com.moandjiezana.toml', 'com.volmit.brimstone.libs.toml')
+    relocate('net.kyori', 'com.volmit.brimstone.libs.kyori')
+}
+
+tasks.named('shadowJar').configure {
+    archiveClassifier.set('')
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    minimize {
+        exclude(dependency('de.crazydev22.slimjar.helper:.*:.*'))
+    }
+    relocate('io.github.slimjar', 'com.volmit.brimstone.libs.slimjar')
+    relocate('art.arcane.volmlib', 'com.volmit.brimstone.libs.volmlib')
+    relocate('com.google.gson', 'com.volmit.brimstone.libs.gson')
+    relocate('com.moandjiezana.toml', 'com.volmit.brimstone.libs.toml')
+    relocate('net.kyori', 'com.volmit.brimstone.libs.kyori') { skipStringConstants = true }
+}
+
+def runtimeLibraryTestJar = tasks.register('runtimeLibraryTestJar', com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
+    archiveFileName.set('runtime-libraries.jar')
+    destinationDirectory.set(layout.buildDirectory.dir('test-libraries'))
+    configurations = [project.configurations.runtimeLibraryTest]
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    relocate('com.google.gson', 'com.volmit.brimstone.libs.gson')
+    relocate('com.moandjiezana.toml', 'com.volmit.brimstone.libs.toml')
+    relocate('net.kyori', 'com.volmit.brimstone.libs.kyori')
+}
+
+tasks.named('test').configure {
+    useJUnitPlatform()
+    systemProperty('brimstone.projectDir', projectDir.absolutePath)
+    exclude('com/volmit/brimstone/RuntimeJarTest.class')
+}
+
+def packagingTest = tasks.register('packagingTest', Test) {
+    group = 'verification'
+    description = 'Exercises configuration and command reflection from the packaged runtime jars.'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    include('com/volmit/brimstone/RuntimeJarTest.class')
+    dependsOn(tasks.named('shadowJar'), runtimeLibraryTestJar)
+    useJUnitPlatform()
+    systemProperty('brimstone.projectDir', projectDir.absolutePath)
+    inputs.file(tasks.named('shadowJar').flatMap { it.archiveFile })
+    inputs.file(runtimeLibraryTestJar.flatMap { it.archiveFile })
+    doFirst {
+        systemProperty('brimstone.runtimeJar', tasks.named('shadowJar').get().archiveFile.get().asFile.absolutePath)
+        systemProperty('brimstone.runtimeTestLibraries', runtimeLibraryTestJar.get().archiveFile.get().asFile.absolutePath)
+    }
+}
+
+tasks.register('verifyJava25Artifact') {
+    dependsOn(tasks.named('shadowJar'))
+    inputs.file(tasks.named('shadowJar').flatMap { it.archiveFile })
+    doLast {
+        ZipFile archive = new ZipFile(tasks.named('shadowJar').get().archiveFile.get().asFile)
+        try {
+            for (String required : ['slimjar.dat', 'slimjar-resolutions.dat', 'brimstone-language-source.properties',
+                                    'com/volmit/brimstone/libs/slimjar/app/builder/SpigotApplicationBuilder.class',
+                                    'com/volmit/brimstone/metrics/Metrics.class', 'META-INF/LICENSE-bStats-Metrics.txt']) {
+                if (archive.getEntry(required) == null) {
+                    throw new GradleException("Runtime artifact is missing ${required}")
+                }
+            }
+            int metadataCount = 0
+            List<String> bundledLanguages = []
+            archive.entries().each { java.util.zip.ZipEntry entry ->
+                if (entry.name == 'plugin.yml') { metadataCount++ }
+                if (!entry.directory && entry.name.startsWith('languages/') && entry.name.endsWith('.toml')) {
+                    bundledLanguages.add(entry.name)
+                }
+                if (entry.name.startsWith('org/bstats/')) {
+                    throw new GradleException("Unpackaged bStats class: ${entry.name}")
+                }
+                if (entry.name.startsWith('art/arcane/volmlib/')) {
+                    throw new GradleException("Unrelocated VolmLib class: ${entry.name}")
+                }
+                if (entry.name.startsWith('com/volmit/brimstone/libs/gson/')
+                        || entry.name.startsWith('com/volmit/brimstone/libs/toml/')
+                        || entry.name.startsWith('com/volmit/brimstone/libs/kyori/')) {
+                    throw new GradleException("Runtime-downloaded library is bundled in artifact: ${entry.name}")
+                }
+                if (entry.name.endsWith('.class')) {
+                    archive.getInputStream(entry).withCloseable { InputStream stream ->
+                        DataInputStream input = new DataInputStream(stream)
+                        input.readInt()
+                        input.readUnsignedShort()
+                        int major = input.readUnsignedShort()
+                        if (major > 69) { throw new GradleException("Java 25 incompatible class ${entry.name}: ${major}") }
+                        if (entry.name.startsWith('com/volmit/brimstone/') && !entry.name.startsWith('com/volmit/brimstone/libs/') && major != 69) {
+                            throw new GradleException("Brimstone class must target Java 25: ${entry.name}: ${major}")
+                        }
+                    }
+                }
+            }
+            if (metadataCount != 1) { throw new GradleException("Expected one plugin.yml, found ${metadataCount}") }
+            if (!bundledLanguages.isEmpty()) {
+                throw new GradleException("Runtime artifact contains language resources: ${bundledLanguages}")
+            }
+            Properties languageManifest = new Properties()
+            archive.getInputStream(archive.getEntry('brimstone-language-source.properties')).withCloseable { InputStream input ->
+                languageManifest.load(input)
+            }
+            if (languageManifest.getProperty('repository') != languageSourceRepository
+                    || languageManifest.getProperty('branch') != languageSourceBranch
+                    || languageManifest.getProperty('path') != languageSourcePath
+                    || languageManifest.getProperty('extension') != '.toml'
+                    || languageManifest.getProperty('locales') != languageSourceLocales.join(',')) {
+                throw new GradleException('Runtime language source manifest does not match the build source set')
+            }
+            if (languageManifest.stringPropertyNames().any { String key ->
+                key == 'revision' || key == 'mode' || key.startsWith('sha256.')
+            }) {
+                throw new GradleException('Runtime language source manifest must track the repository branch, not a pinned revision')
+            }
+        } finally {
+            archive.close()
+        }
+    }
+}
+
+tasks.named('check').configure {
+    dependsOn(packagingTest)
+    dependsOn('compileCurrentPaperCompatibility', 'compileCurrentSpigotCompatibility', 'verifyJava25Artifact', 'verifyJava25RuntimeLibraries')
+}
+
+tasks.register('verifyJava25RuntimeLibraries') {
+    inputs.files(configurations.runtimeLibraryTest)
+    doLast {
+        configurations.runtimeLibraryTest.each { File library ->
+            new ZipFile(library).withCloseable { ZipFile archive ->
+                archive.entries().each { java.util.zip.ZipEntry entry ->
+                    if (!entry.name.endsWith('.class')) { return }
+                    if (entry.name.startsWith('META-INF/versions/')) {
+                        int version = Integer.parseInt(entry.name.split('/')[2])
+                        if (version > 25) { return }
+                    }
+                    archive.getInputStream(entry).withCloseable { InputStream stream ->
+                        DataInputStream input = new DataInputStream(stream)
+                        input.readInt()
+                        input.readUnsignedShort()
+                        int major = input.readUnsignedShort()
+                        if (major > 69) {
+                            throw new GradleException("Java 25 incompatible runtime library ${library.name}: ${entry.name}: ${major}")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+tasks.register('buildSwiftSwamp', Copy) {
+    group = 'development'
+    description = 'Builds, verifies, and stages Brimstone in the workspace BUILDS directory.'
+    outputs.upToDateWhen { false }
+    dependsOn('check', 'shadowJar')
+    from(tasks.named('shadowJar').flatMap { it.archiveFile })
+    into(providers.gradleProperty('buildsDirectory').orElse('../BUILDS'))
+    rename { String ignored -> 'Brimstone.jar' }
+}
+
+tasks.named('build').configure { dependsOn('shadowJar') }
+
+publishing {
+    publications {
+        brimstone(MavenPublication) {
+            artifactId = 'brimstone'
+            artifact(tasks.named('shadowJar'))
+            artifact(tasks.named('sourcesJar'))
+        }
+    }
+}
+
+sourceSets.test.resources.srcDir('src/main/resources')
+
+tasks.named('processTestResources').configure { exclude('plugin.yml') }
+
+pluginPackaging {
+    artifacts {
+        create('distribution') {
+            taskName = 'shadowJar'
+            maximumBytes = 7500000
+            prunePrefixes = ['com/volmit/brimstone/libs/volmlib/']
+            keepPrefixes = []
+            requiredEntries = ['plugin.yml', 'com/volmit/brimstone/Brimstone.class', 'brimstone-language-source.properties',
+                               'slimjar.dat', 'slimjar-resolutions.dat',
+                               'com/volmit/brimstone/libs/slimjar/app/builder/SpigotApplicationBuilder.class',
+                               'com/volmit/brimstone/metrics/Metrics.class', 'META-INF/LICENSE-bStats-Metrics.txt']
+            forbiddenPrefixes = ['org/bstats/', 'org/bukkit/', 'io/papermc/', 'net/minecraft/', 'org/gradle/',
+                                 'com/sk89q/worldguard/', 'com/sk89q/worldedit/',
+                                 'art/arcane/volmit/packaging/', 'art/arcane/volmlib/', 'io/github/slimjar/',
+                                 'com/google/gson/', 'com/moandjiezana/toml/', 'net/kyori/',
+                                 'com/volmit/brimstone/libs/gson/', 'com/volmit/brimstone/libs/toml/',
+                                 'com/volmit/brimstone/libs/kyori/']
+            shrinkRules = [file('packaging/shrink.pro')]
+            shrinkRelocations = ['com.google.gson': 'com.volmit.brimstone.libs.gson',
+                                 'com.moandjiezana.toml': 'com.volmit.brimstone.libs.toml',
+                                 'net.kyori': 'com.volmit.brimstone.libs.kyori']
+        }
+    }
+}
+

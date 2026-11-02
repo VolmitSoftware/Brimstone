@@ -1,0 +1,16 @@
+-keep class com.volmit.brimstone.config.BrimstoneConfig { *; }
+-keep class com.volmit.brimstone.config.BrimstoneConfig$Definition { *; }
+-keep class com.volmit.brimstone.config.BrimstoneConfig$Access { *; }
+-keep class com.volmit.brimstone.config.BrimstoneConfig$Limits { *; }
+-keep class com.volmit.brimstone.config.BrimstoneConfig$Effects { *; }
+-keep class com.volmit.brimstone.config.BrimstoneConfig$Metrics { *; }
+-keepclassmembers class com.volmit.brimstone.config.** { <fields>; }
+-keep interface art.arcane.volmlib.integration.IntegrationServiceContract { public *; }
+-keepclassmembers class com.volmit.brimstone.integration.BrimstoneIntegrationService { public *; }
+-keep class art.arcane.volmlib.integration.IntegrationHandshakeRequest { public *; }
+-keep class art.arcane.volmlib.integration.IntegrationHandshakeResponse { public *; }
+-keep class art.arcane.volmlib.integration.IntegrationProtocolVersion { public *; }
+-keep class art.arcane.volmlib.integration.IntegrationHeartbeat { public *; }
+-keep class art.arcane.volmlib.integration.IntegrationMetricDescriptor { public *; }
+-keep class art.arcane.volmlib.integration.IntegrationMetricSample { public *; }
+-keep class art.arcane.volmlib.integration.IntegrationMetricType { public *; }

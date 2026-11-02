@@ -1,0 +1,56 @@
+name: ${name}
+version: ${version}
+main: ${main}
+api-version: '${apiVersion}'
+folia-supported: true
+load: POSTWORLD
+authors:
+  - VolmitSoftware
+  - Arcane Arts
+  - SwiftSwamp
+  - NextdoorPsycho
+website: https://volmitsoftware.com
+description: Configurable TNT launchers with seven effects, crafting, fuel costs, protection checks, and translated in-game editors.
+softdepend: [WorldGuard]
+commands:
+  brimstone:
+    aliases: [brim]
+    description: Brimstone help and administration
+    usage: /brimstone
+permissions:
+  brimstone.command:
+    description: Allows viewing Brimstone help, status, and the TNT list
+    default: true
+  brimstone.launch:
+    description: Allows launching Brimstone TNT
+    default: true
+  brimstone.craft:
+    description: Allows crafting Brimstone TNT
+    default: true
+  brimstone.bypass.access:
+    description: Allows launching and crafting TNT in worlds the access policy denies
+    default: false
+  brimstone.bypass.cooldown:
+    description: Allows launching TNT without waiting for the cooldown
+    default: false
+  brimstone.bypass.fuel:
+    description: Allows launching TNT without spending fuel
+    default: false
+  brimstone.give:
+    description: Allows giving Brimstone TNT to players
+    default: op
+  brimstone.clear:
+    description: Allows removing all TNT and secondary effects owned by Brimstone
+    default: op
+  brimstone.config:
+    description: Allows editing Brimstone configuration and server language in game
+    default: op
+  brimstone.language.self:
+    description: Allows choosing a personal Brimstone language
+    default: true
+  brimstone.debug:
+    description: Allows creating and optionally uploading Brimstone diagnostic reports
+    default: op
+  brimstone.update:
+    description: Includes Brimstone in shared update notices and permits its update report
+    default: op
